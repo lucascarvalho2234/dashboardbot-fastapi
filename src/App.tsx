@@ -99,7 +99,7 @@ function AppContent() {
       name: botName,
       token: botToken,
       code: botCode,
-      gateway_id: undefined // Implementar seleção de gateway se necessário
+      gateway_id: null
     };
 
     try {
@@ -742,11 +742,14 @@ function AppContent() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Token do Telegram
                     </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      Obtenha seu token no @BotFather do Telegram
+                    </p>
                     <input
                       type="text"
                       value={botToken}
                       onChange={(e) => setBotToken(e.target.value)}
-                      placeholder="Cole o token obtido no @BotFather"
+                      placeholder="1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500"
                     />
                   </div>
@@ -778,6 +781,72 @@ function AppContent() {
                       placeholder="# Cole seu código Python aqui ou carregue um arquivo...
 import telebot
 from telebot import types
+import time
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Token do bot (será substituído automaticamente)
+BOT_TOKEN = 'SEU_TOKEN_AQUI'
+
+# Criar instância do bot
+bot = telebot.TeleBot(BOT_TOKEN)
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    welcome_text = '''🤖 Olá! Eu sou o FarmMoneyRich Bot!
+    
+Comandos disponíveis:
+/start - Mostrar esta mensagem
+/help - Ajuda
+/status - Status do bot
+/ping - Testar conexão
+
+Desenvolvido com ❤️ pelo sistema FarmMoneyRich'''
+    bot.reply_to(message, welcome_text)
+    logger.info(f'Usuário {message.from_user.username} iniciou o bot')
+
+@bot.message_handler(commands=['help'])
+def send_help(message):
+    help_text = '''📚 Central de Ajuda
+    
+Este bot demonstra as funcionalidades do FarmMoneyRich.
+Use /start para começar!'''
+    bot.reply_to(message, help_text)
+
+@bot.message_handler(commands=['status'])
+def send_status(message):
+    status_text = f'''📊 Status do Bot
+    
+✅ Bot Online
+🕐 Horário: {time.strftime('%H:%M:%S')}
+👤 Usuário: @{message.from_user.username or 'Anônimo'}
+
+Sistema funcionando! 🚀'''
+    bot.reply_to(message, status_text)
+
+@bot.message_handler(commands=['ping'])
+def send_ping(message):
+    bot.reply_to(message, '🏓 Pong! Bot online!')
+
+@bot.message_handler(func=lambda message: True)
+def echo_all(message):
+    bot.reply_to(message, f'Você disse: {message.text}\\n\\nUse /help para ver comandos!')
+    logger.info(f'Mensagem de {message.from_user.username}: {message.text}')
+
+def main():
+    logger.info('🤖 FarmMoneyRich Bot iniciando...')
+    try:
+        bot.polling(none_stop=True, interval=0, timeout=20)
+    except Exception as e:
+        logger.error(f'Erro: {e}')
+        time.sleep(5)
+        main()
+
+if __name__ == '__main__':
+    main()"
 
 # Exemplo de bot básico
 bot = telebot.TeleBot('SEU_TOKEN_AQUI')
