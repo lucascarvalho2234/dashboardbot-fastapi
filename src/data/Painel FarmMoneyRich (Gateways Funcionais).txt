@@ -1,0 +1,452 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Painel FarmMoneyRich</title>
+   <script src="https://cdn.tailwindcss.com"></script>
+   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+   <script src="https://unpkg.com/lucide@latest"></script>
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+   <style>
+       body { font-family: 'Inter', sans-serif; }
+       .sidebar-icon { stroke-width: 1.5; }
+       .modal-backdrop { background-color: rgba(0,0,0,0.5); transition: opacity 0.3s ease; }
+       .modal-content { transition: transform 0.3s ease; }
+       .chart-container { position: relative; height: 350px; }
+       
+       /* Estilos para o Toggle Switch */
+       .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+       .switch input { opacity: 0; width: 0; height: 0; }
+       .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+       .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+       input:checked + .slider { background-color: #10B981; } /* Verde quando ativo */
+       input:checked + .slider:before { transform: translateX(20px); }
+   </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-200 transition-colors duration-300">
+   <div class="flex h-screen">
+       <!-- Sidebar -->
+       <aside class="w-64 bg-white dark:bg-gray-800 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+           <div class="h-16 flex items-center justify-center px-4 border-b border-gray-200 dark:border-gray-700">
+               <h1 class="text-2xl font-bold text-teal-600 dark:text-teal-500">FarmMoneyRich</h1>
+           </div>
+           <nav class="flex-1 px-4 py-4 space-y-2">
+               <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium bg-teal-50 dark:bg-gray-700 text-teal-600 dark:text-white rounded-lg" data-section="dashboard">
+                   <i data-lucide="layout-dashboard" class="mr-3 h-5 w-5 sidebar-icon"></i> Dashboard
+               </a>
+               <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg" data-section="bots">
+                   <i data-lucide="bot" class="mr-3 h-5 w-5 sidebar-icon"></i> Meus Bots
+               </a>
+               <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg" data-section="gateways">
+                   <i data-lucide="credit-card" class="mr-3 h-5 w-5 sidebar-icon"></i> Gateways
+               </a>
+               <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg" data-section="users">
+                   <i data-lucide="users" class="mr-3 h-5 w-5 sidebar-icon"></i> Usuários
+               </a>
+           </nav>
+           <div class="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+                <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg">
+                   <i data-lucide="log-out" class="mr-3 h-5 w-5 sidebar-icon"></i> Sair
+               </a>
+           </div>
+       </aside>
+
+       <!-- Main content -->
+       <main class="flex-1 flex flex-col overflow-hidden">
+           <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 flex-shrink-0">
+               <h2 id="section-title" class="text-xl font-semibold">Dashboard</h2>
+               <div class="flex items-center space-x-4">
+                   <button id="theme-toggle" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
+                       <i data-lucide="sun" class="h-5 w-5 block dark:hidden"></i>
+                       <i data-lucide="moon" class="h-5 w-5 hidden dark:block"></i>
+                   </button>
+                   <div class="relative">
+                       <img class="h-9 w-9 rounded-full object-cover" src="https://placehold.co/100x100/1F2937/E5E7EB?text=L" alt="Avatar do usuário">
+                       <span class="absolute right-0 bottom-0 h-2.5 w-2.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></span>
+                   </div>
+               </div>
+           </header>
+
+           <div class="flex-1 overflow-y-auto p-6">
+               <!-- Dashboard Section -->
+               <section id="dashboard" class="space-y-6">
+                   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                       <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-gray-500 dark:text-gray-400">Receita Total</p><p id="total-revenue" class="text-2xl font-bold">R$ 0,00</p></div><div class="p-2.5 bg-teal-100 dark:bg-teal-900/50 rounded-lg"><i data-lucide="dollar-sign" class="h-6 w-6 text-teal-600 dark:text-teal-400"></i></div></div></div>
+                       <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-gray-500 dark:text-gray-400">Transações</p><p id="total-transactions" class="text-2xl font-bold">0</p></div><div class="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg"><i data-lucide="shopping-cart" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i></div></div></div>
+                       <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-gray-500 dark:text-gray-400">Bots Ativos</p><p id="active-bots" class="text-2xl font-bold">0 / 5</p></div><div class="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg"><i data-lucide="bot" class="h-6 w-6 text-green-600 dark:text-green-400"></i></div></div></div>
+                       <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-gray-500 dark:text-gray-400">Taxa de Sucesso</p><p id="success-rate" class="text-2xl font-bold">0%</p></div><div class="p-2.5 bg-red-100 dark:bg-red-900/50 rounded-lg"><i data-lucide="check-circle" class="h-6 w-6 text-red-600 dark:text-red-400"></i></div></div></div>
+                   </div>
+                   <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+                       <h3 class="text-lg font-semibold mb-4">Visão Geral de Receita</h3>
+                       <div class="chart-container"><canvas id="revenueChart"></canvas></div>
+                   </div>
+               </section>
+
+               <!-- Bots Section -->
+               <section id="bots" class="hidden space-y-6">
+                   <div class="flex justify-between items-center">
+                       <div>
+                           <h3 class="text-lg font-semibold">Gerenciamento de Bots</h3>
+                           <p id="bots-capacity" class="text-sm text-gray-500 dark:text-gray-400">Bots hospedados: 0 de 5</p>
+                       </div>
+                       <button id="add-bot-btn" class="flex items-center bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors">
+                           <i data-lucide="plus" class="h-5 w-5 mr-2"></i> Adicionar Novo Bot
+                       </button>
+                   </div>
+                   <div id="bots-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                       <p id="no-bots-message" class="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">Nenhum bot encontrado. Adicione um novo para começar.</p>
+                   </div>
+               </section>
+
+               <!-- Gateways Section -->
+               <section id="gateways" class="hidden space-y-6">
+                   <div class="flex justify-between items-center">
+                       <h3 class="text-lg font-semibold">Gerenciamento de Gateways</h3>
+                       <button id="add-gateway-btn" class="flex items-center bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors">
+                           <i data-lucide="plus" class="h-5 w-5 mr-2"></i> Adicionar Novo Gateway
+                       </button>
+                   </div>
+                   <div id="gateways-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                       <p id="no-gateways-message" class="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">Nenhum gateway encontrado. Adicione um novo para começar.</p>
+                   </div>
+               </section>
+
+               <!-- Users Section -->
+               <section id="users" class="hidden">
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+                       <h3 class="text-lg font-semibold mb-4">Gerenciamento de Usuários</h3>
+                       <p class="text-gray-500 dark:text-gray-400">Funcionalidade em desenvolvimento.</p>
+                   </div>
+               </section>
+           </div>
+       </main>
+   </div>
+
+   <!-- Templates -->
+   <template id="bot-card-template">
+       <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow flex flex-col bot-card">
+           <div class="flex-1">
+               <div class="flex items-start justify-between mb-4"><h4 class="font-semibold text-lg bot-name mr-2"></h4><label class="switch"><input type="checkbox" class="status-toggle"><span class="slider"></span></label></div>
+               <p class="text-sm text-gray-500 dark:text-gray-400">Token: <span class="font-mono bot-token"></span></p>
+           </div>
+           <div class="mt-6 flex items-center justify-end space-x-2">
+               <button class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 edit-btn"><i data-lucide="edit-3" class="h-5 w-5 pointer-events-none"></i></button>
+               <button class="p-2 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-gray-700 restart-btn"><i data-lucide="refresh-cw" class="h-5 w-5 pointer-events-none"></i></button>
+               <button class="p-2 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-gray-700 delete-btn"><i data-lucide="trash-2" class="h-5 w-5 pointer-events-none"></i></button>
+           </div>
+       </div>
+   </template>
+   
+   <template id="gateway-card-template">
+       <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow flex flex-col gateway-card">
+           <div class="flex-1">
+               <div class="flex items-start justify-between mb-2">
+                   <h4 class="font-semibold text-lg gateway-name mr-2"></h4>
+                   <span class="flex items-center text-sm px-2.5 py-0.5 rounded-full gateway-status-badge">
+                       <span class="w-2 h-2 mr-2 rounded-full gateway-status-indicator"></span>
+                       <span class="gateway-status-text"></span>
+                   </span>
+               </div>
+               <p class="text-sm text-gray-500 dark:text-gray-400 gateway-type"></p>
+           </div>
+           <div class="mt-6 flex items-center justify-end space-x-2">
+               <button class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 test-connection-btn"><i data-lucide="plug-zap" class="h-5 w-5 pointer-events-none"></i></button>
+               <button class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 edit-btn"><i data-lucide="edit-3" class="h-5 w-5 pointer-events-none"></i></button>
+               <button class="p-2 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-gray-700 delete-btn"><i data-lucide="trash-2" class="h-5 w-5 pointer-events-none"></i></button>
+           </div>
+       </div>
+   </template>
+
+   <!-- Modals -->
+   <div id="bot-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden opacity-0">
+       <form id="bot-form" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 modal-content transform scale-95">
+           <input type="hidden" id="bot-id-input">
+           <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700"><h3 id="bot-modal-title" class="text-xl font-semibold"></h3><button type="button" id="close-bot-modal-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><i data-lucide="x" class="h-5 w-5 text-gray-500 dark:text-gray-400"></i></button></div>
+           <div class="p-6">
+               <div class="border-b border-gray-200 dark:border-gray-700 mb-6"><nav class="-mb-px flex space-x-6" aria-label="Tabs"><a href="#" id="bot-tab-config" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Configuração</a><a href="#" id="bot-tab-code" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Código</a></nav></div>
+               <div id="bot-content-config" class="space-y-6">
+                   <div><label for="bot-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Bot</label><input type="text" id="bot-name" placeholder="Ex: Bot de Vendas" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required></div>
+                   <div><label for="bot-token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Token do Telegram</label><input type="text" id="bot-token" placeholder="Cole o token obtido no @BotFather" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required></div>
+               </div>
+               <div id="bot-content-code" class="hidden space-y-4">
+                   <div><label for="bot-code-file" class="text-sm font-medium text-gray-700 dark:text-gray-300">Carregar arquivo (.py)</label><input type="file" id="bot-code-file" accept=".py" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-gray-700 dark:file:text-teal-300 dark:hover:file:bg-gray-600"></div>
+                   <textarea id="code-editor" class="w-full bg-gray-900 text-white font-mono text-sm p-4 rounded-lg h-64 focus:ring-teal-500 focus:border-teal-500" placeholder="Cole seu código aqui ou carregue um arquivo..."></textarea>
+               </div>
+           </div>
+           <div class="flex items-center justify-end p-5 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 rounded-b-xl"><button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-5 rounded-lg shadow transition-colors">Salvar</button></div>
+       </form>
+   </div>
+
+   <div id="gateway-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden opacity-0">
+       <form id="gateway-form" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 modal-content transform scale-95">
+           <input type="hidden" id="gateway-id-input">
+           <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700"><h3 id="gateway-modal-title" class="text-xl font-semibold"></h3><button type="button" id="close-gateway-modal-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><i data-lucide="x" class="h-5 w-5 text-gray-500 dark:text-gray-400"></i></button></div>
+           <div class="p-6 space-y-6">
+               <div><label for="gateway-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Gateway</label><input type="text" id="gateway-name" placeholder="Ex: Meu Servidor Principal" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required></div>
+               <div><label for="gateway-type-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label><select id="gateway-type-select" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500"><option>BTCPay Server</option><option>Stripe</option><option>Outro</option></select></div>
+               <div><label for="gateway-url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL da API</label><input type="url" id="gateway-url" placeholder="https://api.meugateway.com" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required></div>
+               <div><label for="gateway-key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Chave da API (API Key)</label><input type="password" id="gateway-key" placeholder="••••••••••••••••••••" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required></div>
+           </div>
+           <div class="flex items-center justify-end p-5 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 rounded-b-xl"><button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-5 rounded-lg shadow transition-colors">Salvar Gateway</button></div>
+       </form>
+   </div>
+
+   <script>
+       document.addEventListener('DOMContentLoaded', () => {
+           lucide.createIcons();
+
+           // --- ESTADO DA APLICAÇÃO ---
+           let bots = [];
+           let gateways = [];
+
+           // --- ELEMENTOS DO DOM ---
+           const botsContainer = document.getElementById('bots-container');
+           const noBotsMessage = document.getElementById('no-bots-message');
+           const botCardTemplate = document.getElementById('bot-card-template');
+           const botsCapacity = document.getElementById('bots-capacity');
+           
+           const gatewaysContainer = document.getElementById('gateways-container');
+           const noGatewaysMessage = document.getElementById('no-gateways-message');
+           const gatewayCardTemplate = document.getElementById('gateway-card-template');
+
+           // --- LÓGICA DE RENDERIZAÇÃO ---
+           const renderBots = () => {
+               botsContainer.innerHTML = ''; 
+               if (bots.length === 0) {
+                   botsContainer.appendChild(noBotsMessage);
+                   noBotsMessage.classList.remove('hidden');
+               } else {
+                   noBotsMessage.classList.add('hidden');
+                   bots.forEach(bot => {
+                       const card = botCardTemplate.content.cloneNode(true);
+                       const botCardElement = card.querySelector('.bot-card');
+                       botCardElement.dataset.botId = bot.id;
+                       card.querySelector('.bot-name').textContent = bot.name;
+                       card.querySelector('.bot-token').textContent = `${bot.token.substring(0, 4)}...${bot.token.slice(-4)}`;
+                       card.querySelector('.status-toggle').checked = bot.isActive;
+                       botsContainer.appendChild(card);
+                   });
+               }
+               botsCapacity.textContent = `Bots hospedados: ${bots.length} de 5`;
+               lucide.createIcons();
+           };
+
+           const renderGateways = () => {
+               gatewaysContainer.innerHTML = '';
+               if (gateways.length === 0) {
+                   gatewaysContainer.appendChild(noGatewaysMessage);
+                   noGatewaysMessage.classList.remove('hidden');
+               } else {
+                   noGatewaysMessage.classList.add('hidden');
+                   gateways.forEach(gateway => {
+                       const card = gatewayCardTemplate.content.cloneNode(true);
+                       const gatewayCardElement = card.querySelector('.gateway-card');
+                       gatewayCardElement.dataset.gatewayId = gateway.id;
+                       card.querySelector('.gateway-name').textContent = gateway.name;
+                       card.querySelector('.gateway-type').textContent = gateway.type;
+                       
+                       const statusBadge = card.querySelector('.gateway-status-badge');
+                       const statusIndicator = card.querySelector('.gateway-status-indicator');
+                       const statusText = card.querySelector('.gateway-status-text');
+
+                       statusText.textContent = gateway.status;
+                       if (gateway.status === 'Conectado') {
+                           statusBadge.className = 'flex items-center text-sm bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 px-2.5 py-0.5 rounded-full gateway-status-badge';
+                           statusIndicator.className = 'w-2 h-2 mr-2 bg-green-500 rounded-full gateway-status-indicator';
+                       } else {
+                           statusBadge.className = 'flex items-center text-sm bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 px-2.5 py-0.5 rounded-full gateway-status-badge';
+                           statusIndicator.className = 'w-2 h-2 mr-2 bg-red-500 rounded-full gateway-status-indicator';
+                       }
+                       gatewaysContainer.appendChild(card);
+                   });
+               }
+               lucide.createIcons();
+           };
+
+           // --- MODAL GENÉRICO ---
+           const openModal = (modalEl) => {
+               modalEl.classList.remove('hidden');
+               setTimeout(() => {
+                   modalEl.classList.remove('opacity-0');
+                   modalEl.querySelector('.modal-content').classList.remove('scale-95');
+               }, 10);
+           };
+           const closeModal = (modalEl) => {
+               modalEl.classList.add('opacity-0');
+               modalEl.querySelector('.modal-content').classList.add('scale-95');
+               setTimeout(() => modalEl.classList.add('hidden'), 300);
+           };
+
+           // --- LÓGICA DE BOTS ---
+           const botModal = document.getElementById('bot-modal');
+           const botForm = document.getElementById('bot-form');
+           const botModalTitle = document.getElementById('bot-modal-title');
+           const botIdInput = document.getElementById('bot-id-input');
+           const botNameInput = document.getElementById('bot-name');
+           const botTokenInput = document.getElementById('bot-token');
+           const codeEditor = document.getElementById('code-editor');
+           const botCodeFileInput = document.getElementById('bot-code-file');
+
+           const handleSaveBot = (e) => {
+               e.preventDefault();
+               const id = botIdInput.value;
+               const botData = { name: botNameInput.value, token: botTokenInput.value, code: codeEditor.value, isActive: id ? bots.find(b => b.id === id).isActive : false };
+               if (id) {
+                   const index = bots.findIndex(b => b.id === id);
+                   bots[index] = { ...bots[index], ...botData };
+               } else {
+                   botData.id = `bot_${Date.now()}`;
+                   bots.push(botData);
+               }
+               renderBots();
+               closeModal(botModal);
+           };
+
+           const handleBotAction = (e) => {
+               const target = e.target;
+               const botCard = target.closest('.bot-card');
+               if (!botCard) return;
+               const botId = botCard.dataset.botId;
+               const bot = bots.find(b => b.id === botId);
+
+               if (target.matches('.status-toggle')) {
+                   bot.isActive = target.checked;
+                   console.log(`Bot ${botId} status: ${bot.isActive}`);
+               } else if (target.closest('.edit-btn')) {
+                   botModalTitle.textContent = "Editar Bot";
+                   botIdInput.value = bot.id;
+                   botNameInput.value = bot.name;
+                   botTokenInput.value = bot.token;
+                   codeEditor.value = bot.code;
+                   openModal(botModal);
+               } else if (target.closest('.delete-btn')) {
+                   if (confirm(`Excluir o bot "${bot.name}"?`)) {
+                       bots = bots.filter(b => b.id !== botId);
+                       renderBots();
+                   }
+               } else if (target.closest('.restart-btn')) {
+                   console.log(`Reiniciando bot ${botId}...`);
+               }
+           };
+
+           document.getElementById('add-bot-btn').addEventListener('click', () => {
+               botForm.reset();
+               codeEditor.value = '';
+               botIdInput.value = '';
+               botModalTitle.textContent = "Adicionar Novo Bot";
+               openModal(botModal);
+           });
+           botForm.addEventListener('submit', handleSaveBot);
+           botsContainer.addEventListener('click', handleBotAction);
+           botCodeFileInput.addEventListener('change', (e) => {
+               const file = e.target.files[0];
+               if (!file) return;
+               const reader = new FileReader();
+               reader.onload = (event) => { codeEditor.value = event.target.result; };
+               reader.readAsText(file);
+           });
+           document.getElementById('close-bot-modal-btn').addEventListener('click', () => closeModal(botModal));
+
+           // --- LÓGICA DE GATEWAYS ---
+           const gatewayModal = document.getElementById('gateway-modal');
+           const gatewayForm = document.getElementById('gateway-form');
+           const gatewayModalTitle = document.getElementById('gateway-modal-title');
+           const gatewayIdInput = document.getElementById('gateway-id-input');
+           const gatewayNameInput = document.getElementById('gateway-name');
+           const gatewayTypeSelect = document.getElementById('gateway-type-select');
+           const gatewayUrlInput = document.getElementById('gateway-url');
+           const gatewayKeyInput = document.getElementById('gateway-key');
+
+           const handleSaveGateway = (e) => {
+               e.preventDefault();
+               const id = gatewayIdInput.value;
+               const gatewayData = { name: gatewayNameInput.value, type: gatewayTypeSelect.value, url: gatewayUrlInput.value, key: gatewayKeyInput.value, status: id ? gateways.find(g => g.id === id).status : 'Erro' };
+               if (id) {
+                   const index = gateways.findIndex(g => g.id === id);
+                   gateways[index] = { ...gateways[index], ...gatewayData };
+               } else {
+                   gatewayData.id = `gtw_${Date.now()}`;
+                   gateways.push(gatewayData);
+               }
+               renderGateways();
+               closeModal(gatewayModal);
+           };
+
+           const handleGatewayAction = (e) => {
+               const target = e.target;
+               const gatewayCard = target.closest('.gateway-card');
+               if (!gatewayCard) return;
+               const gatewayId = gatewayCard.dataset.gatewayId;
+               const gateway = gateways.find(g => g.id === gatewayId);
+
+               if (target.closest('.edit-btn')) {
+                   gatewayModalTitle.textContent = "Editar Gateway";
+                   gatewayIdInput.value = gateway.id;
+                   gatewayNameInput.value = gateway.name;
+                   gatewayTypeSelect.value = gateway.type;
+                   gatewayUrlInput.value = gateway.url;
+                   gatewayKeyInput.value = gateway.key;
+                   openModal(gatewayModal);
+               } else if (target.closest('.delete-btn')) {
+                   if (confirm(`Excluir o gateway "${gateway.name}"?`)) {
+                       gateways = gateways.filter(g => g.id !== gatewayId);
+                       renderGateways();
+                   }
+               } else if (target.closest('.test-connection-btn')) {
+                   console.log(`Testando conexão com ${gatewayId}...`);
+                   // Simula uma chamada de API
+                   gateway.status = Math.random() > 0.3 ? 'Conectado' : 'Erro';
+                   renderGateways();
+               }
+           };
+           
+           document.getElementById('add-gateway-btn').addEventListener('click', () => {
+               gatewayForm.reset();
+               gatewayIdInput.value = '';
+               gatewayModalTitle.textContent = "Adicionar Novo Gateway";
+               openModal(gatewayModal);
+           });
+           gatewayForm.addEventListener('submit', handleSaveGateway);
+           gatewaysContainer.addEventListener('click', handleGatewayAction);
+           document.getElementById('close-gateway-modal-btn').addEventListener('click', () => closeModal(gatewayModal));
+
+
+           // --- LÓGICA GERAL DE UI (TEMA, NAVEGAÇÃO, GRÁFICO) ---
+           const htmlEl = document.documentElement;
+           document.getElementById('theme-toggle').addEventListener('click', () => {
+               htmlEl.classList.toggle('dark');
+               if(window.revenueChart) { window.revenueChart.options = getChartOptions(); window.revenueChart.update(); }
+           });
+
+           document.querySelectorAll('aside nav a').forEach(link => {
+               link.addEventListener('click', (e) => {
+                   e.preventDefault();
+                   const sectionId = link.dataset.section;
+                   document.querySelectorAll('aside nav a').forEach(nav => nav.classList.remove('bg-teal-50', 'dark:bg-gray-700', 'text-teal-600', 'dark:text-white'));
+                   link.classList.add('bg-teal-50', 'dark:bg-gray-700', 'text-teal-600', 'dark:text-white');
+                   document.querySelectorAll('main section').forEach(section => section.classList.add('hidden'));
+                   document.getElementById(sectionId).classList.remove('hidden');
+                   document.getElementById('section-title').textContent = link.textContent.trim();
+               });
+           });
+
+           const getChartOptions = () => {
+               const isDarkMode = htmlEl.classList.contains('dark');
+               const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+               const textColor = isDarkMode ? '#E5E7EB' : '#374151';
+               return { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } }, x: { grid: { display: false }, ticks: { color: textColor } } }, plugins: { legend: { display: false } } };
+           };
+           const createChart = () => {
+               const ctx = document.getElementById('revenueChart').getContext('2d');
+               window.revenueChart = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Receita', data: [], backgroundColor: 'rgba(13, 148, 136, 0.1)', borderColor: 'rgb(13, 148, 136)', borderWidth: 2, tension: 0.4, fill: true, }] }, options: getChartOptions() });
+           };
+
+           // --- INICIALIZAÇÃO ---
+           renderBots();
+           renderGateways();
+           createChart();
+       });
+   </script>
+</body>
+</html>

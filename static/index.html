@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel FarmMoneyRich</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-icon { stroke-width: 1.5; }
+        .modal-backdrop { background-color: rgba(0,0,0,0.5); transition: opacity 0.3s ease; }
+        .modal-content { transition: transform 0.3s ease; }
+        
+        /* Estilos para o Toggle Switch */
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #10B981; }
+        input:checked + .slider:before { transform: translateX(20px); }
+        
+        /* Loading spinner */
+        .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-200 transition-colors duration-300">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white dark:bg-gray-800 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+            <div class="h-16 flex items-center justify-center px-4 border-b border-gray-200 dark:border-gray-700">
+                <h1 class="text-2xl font-bold text-teal-600 dark:text-teal-500">FarmMoneyRich</h1>
+            </div>
+            <nav class="flex-1 px-4 py-4 space-y-2">
+                <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium bg-teal-50 dark:bg-gray-700 text-teal-600 dark:text-white rounded-lg" data-section="dashboard">
+                    <i data-lucide="layout-dashboard" class="mr-3 h-5 w-5 sidebar-icon"></i> Dashboard
+                </a>
+                <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg" data-section="bots">
+                    <i data-lucide="bot" class="mr-3 h-5 w-5 sidebar-icon"></i> Meus Bots
+                </a>
+                <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg" data-section="gateways">
+                    <i data-lucide="credit-card" class="mr-3 h-5 w-5 sidebar-icon"></i> Gateways
+                </a>
+                <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg" data-section="logs">
+                    <i data-lucide="terminal" class="mr-3 h-5 w-5 sidebar-icon"></i> Logs
+                </a>
+                <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg" data-section="users">
+                    <i data-lucide="users" class="mr-3 h-5 w-5 sidebar-icon"></i> Usuários
+                </a>
+            </nav>
+            <div class="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+                <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-lg">
+                    <i data-lucide="log-out" class="mr-3 h-5 w-5 sidebar-icon"></i> Sair
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 flex-shrink-0">
+                <h2 id="section-title" class="text-xl font-semibold">Dashboard</h2>
+                <div class="flex items-center space-x-4">
+                    <div id="connection-status" class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span class="text-sm text-gray-500">Conectado</span>
+                    </div>
+                    <button id="theme-toggle" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
+                        <i data-lucide="sun" class="h-5 w-5 block dark:hidden"></i>
+                        <i data-lucide="moon" class="h-5 w-5 hidden dark:block"></i>
+                    </button>
+                    <div class="relative">
+                        <img class="h-9 w-9 rounded-full object-cover" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="Avatar do usuário">
+                        <span class="absolute right-0 bottom-0 h-2.5 w-2.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-6">
+                <!-- Dashboard Section -->
+                <section id="dashboard" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Receita Total</p>
+                                    <p id="total-revenue" class="text-2xl font-bold">R$ 0,00</p>
+                                </div>
+                                <div class="p-2.5 bg-teal-100 dark:bg-teal-900/50 rounded-lg">
+                                    <i data-lucide="dollar-sign" class="h-6 w-6 text-teal-600 dark:text-teal-400"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Transações</p>
+                                    <p id="total-transactions" class="text-2xl font-bold">0</p>
+                                </div>
+                                <div class="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                                    <i data-lucide="shopping-cart" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Bots Ativos</p>
+                                    <p id="active-bots" class="text-2xl font-bold">0 / 0</p>
+                                </div>
+                                <div class="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                                    <i data-lucide="bot" class="h-6 w-6 text-green-600 dark:text-green-400"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Gateways Conectados</p>
+                                    <p id="connected-gateways" class="text-2xl font-bold">0 / 0</p>
+                                </div>
+                                <div class="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                                    <i data-lucide="check-circle" class="h-6 w-6 text-purple-600 dark:text-purple-400"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+                        <h3 class="text-lg font-semibold mb-4">Logs Recentes</h3>
+                        <div id="recent-logs" class="space-y-2 max-h-64 overflow-y-auto">
+                            <p class="text-gray-500 dark:text-gray-400 text-center py-4">Carregando logs...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Outras seções permanecem iguais ao código anterior -->
+                <!-- Bots Section -->
+                <section id="bots" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-semibold">Gerenciamento de Bots</h3>
+                            <p id="bots-capacity" class="text-sm text-gray-500 dark:text-gray-400">Carregando...</p>
+                        </div>
+                        <button id="add-bot-btn" class="flex items-center bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors">
+                            <i data-lucide="plus" class="h-5 w-5 mr-2"></i> Adicionar Novo Bot
+                        </button>
+                    </div>
+                    <div id="bots-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <p class="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">Carregando bots...</p>
+                    </div>
+                </section>
+
+                <!-- Gateways Section -->
+                <section id="gateways" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-semibold">Gerenciamento de Gateways</h3>
+                        <button id="add-gateway-btn" class="flex items-center bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors">
+                            <i data-lucide="plus" class="h-5 w-5 mr-2"></i> Adicionar Novo Gateway
+                        </button>
+                    </div>
+                    <div id="gateways-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <p class="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">Carregando gateways...</p>
+                    </div>
+                </section>
+
+                <!-- Logs Section -->
+                <section id="logs" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-semibold">Logs do Sistema</h3>
+                        <button id="clear-logs-btn" class="flex items-center bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors">
+                            <i data-lucide="trash-2" class="h-5 w-5 mr-2"></i> Limpar Logs
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center space-x-4">
+                                <i data-lucide="terminal" class="h-5 w-5 text-gray-500"></i>
+                                <span class="font-medium">Console de Logs</span>
+                                <span id="logs-count" class="text-sm text-gray-500">(0 entradas)</span>
+                            </div>
+                        </div>
+                        
+                        <div id="logs-container" class="max-h-96 overflow-y-auto p-4">
+                            <p class="text-gray-500 dark:text-gray-400 text-center py-8">Carregando logs...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Users Section -->
+                <section id="users" class="hidden">
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+                        <h3 class="text-lg font-semibold mb-4">Gerenciamento de Usuários</h3>
+                        <p class="text-gray-500 dark:text-gray-400">Funcionalidade em desenvolvimento.</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modais permanecem iguais ao código anterior -->
+    <!-- Bot Modal -->
+    <div id="bot-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden opacity-0">
+        <form id="bot-form" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl mx-4 modal-content transform scale-95 max-h-[90vh] overflow-hidden">
+            <input type="hidden" id="bot-id-input">
+            <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="bot-modal-title" class="text-xl font-semibold">Adicionar Novo Bot</h3>
+                <button type="button" id="close-bot-modal-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <i data-lucide="x" class="h-5 w-5 text-gray-500 dark:text-gray-400"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+                <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+                    <nav class="-mb-px flex space-x-6">
+                        <a href="#" id="bot-tab-config" class="whitespace-nowrap py-3 px-1 border-b-2 border-teal-500 text-teal-600 dark:text-teal-400 font-medium text-sm">
+                            <i data-lucide="settings" class="h-4 w-4 inline mr-2"></i>Configuração
+                        </a>
+                        <a href="#" id="bot-tab-code" class="whitespace-nowrap py-3 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 font-medium text-sm">
+                            <i data-lucide="file-text" class="h-4 w-4 inline mr-2"></i>Código
+                        </a>
+                    </nav>
+                </div>
+                <div id="bot-content-config" class="space-y-6">
+                    <div>
+                        <label for="bot-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Bot</label>
+                        <input type="text" id="bot-name" placeholder="Ex: Bot de Vendas" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required>
+                    </div>
+                    <div>
+                        <label for="bot-token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Token do Telegram</label>
+                        <input type="text" id="bot-token" placeholder="Cole o token obtido no @BotFather" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required>
+                    </div>
+                    <div>
+                        <label for="bot-gateway" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gateway (Opcional)</label>
+                        <select id="bot-gateway" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                            <option value="">Selecione um gateway</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="bot-content-code" class="hidden space-y-4">
+                    <div>
+                        <label for="bot-code-file" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Carregar arquivo (.py)</label>
+                        <input type="file" id="bot-code-file" accept=".py" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-gray-700 dark:file:text-teal-300 dark:hover:file:bg-gray-600">
+                    </div>
+                    <div>
+                        <label for="code-editor" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Editor de Código</label>
+                        <textarea id="code-editor" class="w-full bg-gray-900 text-white font-mono text-sm p-4 rounded-lg h-96 focus:ring-teal-500 focus:border-teal-500 resize-none" placeholder="# Cole seu código Python aqui ou carregue um arquivo...
+import telebot
+from telebot import types
+
+# Exemplo de bot básico
+bot = telebot.TeleBot('SEU_TOKEN_AQUI')
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.reply_to(message, 'Olá! Eu sou seu bot!')
+
+@bot.message_handler(func=lambda message: True)
+def echo_all(message):
+    bot.reply_to(message, message.text)
+
+if __name__ == '__main__':
+    bot.polling()"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center justify-end p-5 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex space-x-3">
+                    <button type="button" id="cancel-bot-btn" class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">Cancelar</button>
+                    <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-5 rounded-lg shadow transition-colors">Salvar Bot</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Gateway Modal -->
+    <div id="gateway-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden opacity-0">
+        <form id="gateway-form" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 modal-content transform scale-95">
+            <input type="hidden" id="gateway-id-input">
+            <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="gateway-modal-title" class="text-xl font-semibold">Adicionar Novo Gateway</h3>
+                <button type="button" id="close-gateway-modal-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <i data-lucide="x" class="h-5 w-5 text-gray-500 dark:text-gray-400"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6">
+                <div>
+                    <label for="gateway-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Gateway</label>
+                    <input type="text" id="gateway-name" placeholder="Ex: Meu Servidor Principal" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required>
+                </div>
+                <div>
+                    <label for="gateway-type-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+                    <select id="gateway-type-select" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                        <option>BTCPay Server</option>
+                        <option>Stripe</option>
+                        <option>PayPal</option>
+                        <option>Mercado Pago</option>
+                        <option>Outro</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="gateway-url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL da API</label>
+                    <input type="url" id="gateway-url" placeholder="https://api.meugateway.com" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required>
+                </div>
+                <div>
+                    <label for="gateway-key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Chave da API (API Key)</label>
+                    <input type="password" id="gateway-key" placeholder="••••••••••••••••••••" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-teal-500 focus:border-teal-500" required>
+                </div>
+            </div>
+            <div class="flex items-center justify-end p-5 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex space-x-3">
+                    <button type="button" id="cancel-gateway-btn" class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">Cancelar</button>
+                    <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-5 rounded-lg shadow transition-colors">Salvar Gateway</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
