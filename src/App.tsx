@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { NotificationProvider, useNotification } from './components/NotificationProvider';
+import { useStats, useBots, useGateways, useLogs } from './hooks/useApi';
+import { BotData, GatewayData } from './services/api';
 import { 
   LayoutDashboard, 
   Bot, 
@@ -23,40 +26,33 @@ import {
   Settings
 } from 'lucide-react';
 
-interface BotData {
-  id: string;
-  name: string;
-  token: string;
-  code: string;
-  isActive: boolean;
-  logs: LogEntry[];
-}
-
-interface GatewayData {
-  id: string;
-  name: string;
-  type: string;
-  url: string;
-  key: string;
-  status: 'Conectado' | 'Erro' | 'Testando';
-}
-
-interface LogEntry {
-  id: string;
-  timestamp: Date;
-  level: 'info' | 'warning' | 'error' | 'success';
-  message: string;
-  botId?: string;
-}
-
 type Section = 'dashboard' | 'bots' | 'gateways' | 'users' | 'logs';
 
-function App() {
+function AppContent() {
+  const { showNotification } = useNotification();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
-  const [bots, setBots] = useState<BotData[]>([]);
-  const [gateways, setGateways] = useState<GatewayData[]>([]);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  
+  // Hooks da API
+  const { stats, loading: statsLoading, refetch: refetchStats } = useStats();
+  const { 
+    bots, 
+    loading: botsLoading, 
+    createBot, 
+    updateBot, 
+    deleteBot, 
+    toggleBot, 
+    restartBot 
+  } = useBots();
+  const { 
+    gateways, 
+    loading: gatewaysLoading, 
+    createGateway, 
+    updateGateway, 
+    deleteGateway, 
+    testGateway 
+  } = useGateways();
+  const { logs, loading: logsLoading, clearLogs } = useLogs();
   
   // Modal states
   const [isBotModalOpen, setIsBotModalOpen] = useState(false);
@@ -76,25 +72,13 @@ function App() {
   const [gatewayUrl, setGatewayUrl] = useState('');
   const [gatewayKey, setGatewayKey] = useState('');
 
-  // Add log function
-  const addLog = (level: LogEntry['level'], message: string, botId?: string) => {
-    const newLog: LogEntry = {
-      id: `log_${Date.now()}_${Math.random()}`,
-      timestamp: new Date(),
-      level,
-      message,
-      botId
-    };
-    setLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep only last 100 logs
-  };
-
   // Bot functions
   const openBotModal = (bot?: BotData) => {
     if (bot) {
       setEditingBot(bot);
       setBotName(bot.name);
       setBotToken(bot.token);
-      setBotCode(bot.code);
+      setBotCode(bot.code || '');
     } else {
       setEditingBot(null);
       setBotName('');
@@ -105,60 +89,67 @@ function App() {
     setIsBotModalOpen(true);
   };
 
-  const saveBotData = () => {
+  const saveBotData = async () => {
     if (!botName.trim() || !botToken.trim()) {
-      addLog('error', 'Nome e token do bot são obrigatórios');
+      showNotification('error', 'Nome e token do bot são obrigatórios');
       return;
     }
 
-    const botData: BotData = {
-      id: editingBot?.id || `bot_${Date.now()}`,
+    const botData = {
       name: botName,
       token: botToken,
       code: botCode,
-      isActive: editingBot?.isActive || false,
-      logs: editingBot?.logs || []
+      gateway_id: undefined // Implementar seleção de gateway se necessário
     };
 
-    if (editingBot) {
-      setBots(prev => prev.map(bot => bot.id === editingBot.id ? botData : bot));
-      addLog('success', `Bot "${botName}" atualizado com sucesso`);
-    } else {
-      setBots(prev => [...prev, botData]);
-      addLog('success', `Bot "${botName}" criado com sucesso`);
-    }
-
-    setIsBotModalOpen(false);
-  };
-
-  const toggleBotStatus = (botId: string) => {
-    setBots(prev => prev.map(bot => {
-      if (bot.id === botId) {
-        const newStatus = !bot.isActive;
-        addLog(newStatus ? 'success' : 'info', 
-          `Bot "${bot.name}" ${newStatus ? 'ativado' : 'desativado'}`, botId);
-        return { ...bot, isActive: newStatus };
+    try {
+      if (editingBot) {
+        await updateBot(editingBot.id, botData);
+        showNotification('success', `Bot "${botName}" atualizado com sucesso`);
+      } else {
+        await createBot(botData);
+        showNotification('success', `Bot "${botName}" criado com sucesso`);
       }
-      return bot;
-    }));
+      setIsBotModalOpen(false);
+      refetchStats();
+    } catch (error) {
+      showNotification('error', error instanceof Error ? error.message : 'Erro ao salvar bot');
+    }
   };
 
-  const deleteBot = (botId: string) => {
+  const toggleBotStatus = async (botId: number) => {
+    try {
+      await toggleBot(botId);
+      const bot = bots.find(b => b.id === botId);
+      showNotification('success', `Bot "${bot?.name}" ${bot?.is_active ? 'desativado' : 'ativado'}`);
+      refetchStats();
+    } catch (error) {
+      showNotification('error', error instanceof Error ? error.message : 'Erro ao alterar status do bot');
+    }
+  };
+
+  const handleDeleteBot = async (botId: number) => {
     const bot = bots.find(b => b.id === botId);
     if (bot && window.confirm(`Excluir o bot "${bot.name}"?`)) {
-      setBots(prev => prev.filter(b => b.id !== botId));
-      addLog('warning', `Bot "${bot.name}" excluído`);
+      try {
+        await deleteBot(botId);
+        showNotification('success', `Bot "${bot.name}" excluído com sucesso`);
+        refetchStats();
+      } catch (error) {
+        showNotification('error', error instanceof Error ? error.message : 'Erro ao excluir bot');
+      }
     }
   };
 
-  const restartBot = (botId: string) => {
+  const handleRestartBot = async (botId: number) => {
     const bot = bots.find(b => b.id === botId);
     if (bot) {
-      addLog('info', `Reiniciando bot "${bot.name}"...`, botId);
-      // Simulate restart process
-      setTimeout(() => {
-        addLog('success', `Bot "${bot.name}" reiniciado com sucesso`, botId);
-      }, 2000);
+      try {
+        await restartBot(botId);
+        showNotification('info', `Reinício do bot "${bot.name}" iniciado`);
+      } catch (error) {
+        showNotification('error', error instanceof Error ? error.message : 'Erro ao reiniciar bot');
+      }
     }
   };
 
@@ -168,8 +159,8 @@ function App() {
       setEditingGateway(gateway);
       setGatewayName(gateway.name);
       setGatewayType(gateway.type);
-      setGatewayUrl(gateway.url);
-      setGatewayKey(gateway.key);
+      setGatewayUrl(gateway.api_url);
+      setGatewayKey(''); // Não mostrar a chave por segurança
     } else {
       setEditingGateway(null);
       setGatewayName('');
@@ -180,61 +171,68 @@ function App() {
     setIsGatewayModalOpen(true);
   };
 
-  const saveGatewayData = () => {
+  const saveGatewayData = async () => {
     if (!gatewayName.trim() || !gatewayUrl.trim() || !gatewayKey.trim()) {
-      addLog('error', 'Todos os campos do gateway são obrigatórios');
+      showNotification('error', 'Todos os campos do gateway são obrigatórios');
       return;
     }
 
-    const gatewayData: GatewayData = {
-      id: editingGateway?.id || `gtw_${Date.now()}`,
+    const gatewayData = {
       name: gatewayName,
       type: gatewayType,
-      url: gatewayUrl,
-      key: gatewayKey,
-      status: editingGateway?.status || 'Erro'
+      api_url: gatewayUrl,
+      api_key: gatewayKey
     };
 
-    if (editingGateway) {
-      setGateways(prev => prev.map(gateway => gateway.id === editingGateway.id ? gatewayData : gateway));
-      addLog('success', `Gateway "${gatewayName}" atualizado com sucesso`);
-    } else {
-      setGateways(prev => [...prev, gatewayData]);
-      addLog('success', `Gateway "${gatewayName}" criado com sucesso`);
+    try {
+      if (editingGateway) {
+        await updateGateway(editingGateway.id, gatewayData);
+        showNotification('success', `Gateway "${gatewayName}" atualizado com sucesso`);
+      } else {
+        await createGateway(gatewayData);
+        showNotification('success', `Gateway "${gatewayName}" criado com sucesso`);
+      }
+      setIsGatewayModalOpen(false);
+      refetchStats();
+    } catch (error) {
+      showNotification('error', error instanceof Error ? error.message : 'Erro ao salvar gateway');
     }
-
-    setIsGatewayModalOpen(false);
   };
 
-  const testGatewayConnection = (gatewayId: string) => {
+  const testGatewayConnection = async (gatewayId: number) => {
     const gateway = gateways.find(g => g.id === gatewayId);
     if (gateway) {
-      setGateways(prev => prev.map(g => 
-        g.id === gatewayId ? { ...g, status: 'Testando' } : g
-      ));
-      
-      addLog('info', `Testando conexão com gateway "${gateway.name}"...`);
-      
-      // Simulate API test
-      setTimeout(() => {
-        const isSuccess = Math.random() > 0.3;
-        const newStatus: GatewayData['status'] = isSuccess ? 'Conectado' : 'Erro';
-        
-        setGateways(prev => prev.map(g => 
-          g.id === gatewayId ? { ...g, status: newStatus } : g
-        ));
-        
-        addLog(isSuccess ? 'success' : 'error', 
-          `Gateway "${gateway.name}" ${isSuccess ? 'conectado com sucesso' : 'falhou na conexão'}`);
-      }, 2000);
+      try {
+        await testGateway(gatewayId);
+        showNotification('info', `Teste de conexão com gateway "${gateway.name}" iniciado`);
+        refetchStats();
+      } catch (error) {
+        showNotification('error', error instanceof Error ? error.message : 'Erro ao testar gateway');
+      }
     }
   };
 
-  const deleteGateway = (gatewayId: string) => {
+  const handleDeleteGateway = async (gatewayId: number) => {
     const gateway = gateways.find(g => g.id === gatewayId);
     if (gateway && window.confirm(`Excluir o gateway "${gateway.name}"?`)) {
-      setGateways(prev => prev.filter(g => g.id !== gatewayId));
-      addLog('warning', `Gateway "${gateway.name}" excluído`);
+      try {
+        await deleteGateway(gatewayId);
+        showNotification('success', `Gateway "${gateway.name}" excluído com sucesso`);
+        refetchStats();
+      } catch (error) {
+        showNotification('error', error instanceof Error ? error.message : 'Erro ao excluir gateway');
+      }
+    }
+  };
+
+  const handleClearLogs = async () => {
+    if (window.confirm('Limpar todos os logs?')) {
+      try {
+        await clearLogs();
+        showNotification('success', 'Logs limpos com sucesso');
+      } catch (error) {
+        showNotification('error', error instanceof Error ? error.message : 'Erro ao limpar logs');
+      }
     }
   };
 
@@ -245,17 +243,13 @@ function App() {
       const reader = new FileReader();
       reader.onload = (e) => {
         setBotCode(e.target?.result as string);
-        addLog('info', `Arquivo "${file.name}" carregado com sucesso`);
+        showNotification('success', `Arquivo "${file.name}" carregado com sucesso`);
       };
       reader.readAsText(file);
     } else {
-      addLog('error', 'Por favor, selecione um arquivo Python (.py)');
+      showNotification('error', 'Por favor, selecione um arquivo Python (.py)');
     }
   };
-
-  // Statistics calculations
-  const activeBots = bots.filter(bot => bot.isActive).length;
-  const connectedGateways = gateways.filter(gateway => gateway.status === 'Conectado').length;
 
   const getSectionTitle = () => {
     switch (activeSection) {
@@ -268,7 +262,7 @@ function App() {
     }
   };
 
-  const getLogLevelColor = (level: LogEntry['level']) => {
+  const getLogLevelColor = (level: string) => {
     switch (level) {
       case 'error': return 'text-red-600 dark:text-red-400';
       case 'warning': return 'text-yellow-600 dark:text-yellow-400';
@@ -277,7 +271,7 @@ function App() {
     }
   };
 
-  const getLogLevelBg = (level: LogEntry['level']) => {
+  const getLogLevelBg = (level: string) => {
     switch (level) {
       case 'error': return 'bg-red-100 dark:bg-red-900/20';
       case 'warning': return 'bg-yellow-100 dark:bg-yellow-900/20';
@@ -358,7 +352,9 @@ function App() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Receita Total</p>
-                        <p className="text-2xl font-bold">R$ 0,00</p>
+                        <p className="text-2xl font-bold">
+                          {statsLoading ? '...' : `R$ ${stats?.total_revenue?.toFixed(2) || '0,00'}`}
+                        </p>
                       </div>
                       <div className="p-2.5 bg-teal-100 dark:bg-teal-900/50 rounded-lg">
                         <DollarSign className="h-6 w-6 text-teal-600 dark:text-teal-400" />
@@ -370,7 +366,9 @@ function App() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Transações</p>
-                        <p className="text-2xl font-bold">0</p>
+                        <p className="text-2xl font-bold">
+                          {statsLoading ? '...' : stats?.total_transactions || '0'}
+                        </p>
                       </div>
                       <div className="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
                         <ShoppingCart className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -382,7 +380,9 @@ function App() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Bots Ativos</p>
-                        <p className="text-2xl font-bold">{activeBots} / {bots.length}</p>
+                        <p className="text-2xl font-bold">
+                          {statsLoading ? '...' : `${stats?.active_bots || 0} / ${stats?.total_bots || 0}`}
+                        </p>
                       </div>
                       <div className="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg">
                         <Bot className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -394,7 +394,9 @@ function App() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Gateways Conectados</p>
-                        <p className="text-2xl font-bold">{connectedGateways} / {gateways.length}</p>
+                        <p className="text-2xl font-bold">
+                          {statsLoading ? '...' : `${stats?.connected_gateways || 0} / ${stats?.total_gateways || 0}`}
+                        </p>
                       </div>
                       <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
                         <CheckCircle className="h-6 w-6 text-purple-600 dark:text-purple-400" />
@@ -406,23 +408,24 @@ function App() {
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
                   <h3 className="text-lg font-semibold mb-4">Logs Recentes</h3>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {logs.slice(0, 5).map(log => (
+                    {logsLoading ? (
+                      <p className="text-gray-500 dark:text-gray-400 text-center py-4">Carregando logs...</p>
+                    ) : logs.length === 0 ? (
+                      <p className="text-gray-500 dark:text-gray-400 text-center py-4">Nenhum log disponível</p>
+                    ) : (
+                      logs.slice(0, 5).map(log => (
                       <div key={log.id} className={`p-3 rounded-lg ${getLogLevelBg(log.level)}`}>
                         <div className="flex items-center justify-between">
                           <span className={`text-sm font-medium ${getLogLevelColor(log.level)}`}>
                             {log.level.toUpperCase()}
                           </span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {log.timestamp.toLocaleTimeString()}
+                            {new Date(log.timestamp).toLocaleTimeString()}
                           </span>
                         </div>
                         <p className="text-sm mt-1">{log.message}</p>
                       </div>
-                    ))}
-                    {logs.length === 0 && (
-                      <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                        Nenhum log disponível
-                      </p>
+                      ))
                     )}
                   </div>
                 </div>
@@ -436,7 +439,7 @@ function App() {
                   <div>
                     <h3 className="text-lg font-semibold">Gerenciamento de Bots</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Bots hospedados: {bots.length} de 5
+                      {botsLoading ? 'Carregando...' : `Bots hospedados: ${bots.length} de 5`}
                     </p>
                   </div>
                   <button
@@ -449,7 +452,11 @@ function App() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {bots.length === 0 ? (
+                  {botsLoading ? (
+                    <p className="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">
+                      Carregando bots...
+                    </p>
+                  ) : bots.length === 0 ? (
                     <p className="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">
                       Nenhum bot encontrado. Adicione um novo para começar.
                     </p>
@@ -462,7 +469,7 @@ function App() {
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input
                                 type="checkbox"
-                                checked={bot.isActive}
+                                checked={bot.is_active}
                                 onChange={() => toggleBotStatus(bot.id)}
                                 className="sr-only peer"
                               />
@@ -474,11 +481,11 @@ function App() {
                           </p>
                           <div className="mt-2">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              bot.isActive 
+                              bot.is_active 
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                             }`}>
-                              {bot.isActive ? 'Ativo' : 'Inativo'}
+                              {bot.is_active ? 'Ativo' : 'Inativo'}
                             </span>
                           </div>
                         </div>
@@ -491,13 +498,13 @@ function App() {
                             <Edit3 className="h-5 w-5" />
                           </button>
                           <button
-                            onClick={() => restartBot(bot.id)}
+                            onClick={() => handleRestartBot(bot.id)}
                             className="p-2 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-gray-700"
                           >
                             <RefreshCw className="h-5 w-5" />
                           </button>
                           <button
-                            onClick={() => deleteBot(bot.id)}
+                            onClick={() => handleDeleteBot(bot.id)}
                             className="p-2 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-gray-700"
                           >
                             <Trash2 className="h-5 w-5" />
@@ -525,7 +532,11 @@ function App() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {gateways.length === 0 ? (
+                  {gatewaysLoading ? (
+                    <p className="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">
+                      Carregando gateways...
+                    </p>
+                  ) : gateways.length === 0 ? (
                     <p className="text-gray-500 dark:text-gray-400 col-span-full text-center py-8">
                       Nenhum gateway encontrado. Adicione um novo para começar.
                     </p>
@@ -550,7 +561,7 @@ function App() {
                             </span>
                           </div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">{gateway.type}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">{gateway.url}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">{gateway.api_url}</p>
                         </div>
                         
                         <div className="mt-6 flex items-center justify-end space-x-2">
@@ -568,7 +579,7 @@ function App() {
                             <Edit3 className="h-5 w-5" />
                           </button>
                           <button
-                            onClick={() => deleteGateway(gateway.id)}
+                            onClick={() => handleDeleteGateway(gateway.id)}
                             className="p-2 text-red-500 hover:text-red-700 dark:hover:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-gray-700"
                           >
                             <Trash2 className="h-5 w-5" />
@@ -587,7 +598,7 @@ function App() {
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Logs do Sistema</h3>
                   <button
-                    onClick={() => setLogs([])}
+                    onClick={handleClearLogs}
                     className="flex items-center bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors"
                   >
                     <Trash2 className="h-5 w-5 mr-2" />
@@ -600,12 +611,19 @@ function App() {
                     <div className="flex items-center space-x-4">
                       <Terminal className="h-5 w-5 text-gray-500" />
                       <span className="font-medium">Console de Logs</span>
-                      <span className="text-sm text-gray-500">({logs.length} entradas)</span>
+                      <span className="text-sm text-gray-500">
+                        ({logsLoading ? '...' : logs.length} entradas)
+                      </span>
                     </div>
                   </div>
                   
                   <div className="max-h-96 overflow-y-auto">
-                    {logs.length === 0 ? (
+                    {logsLoading ? (
+                      <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                        <Terminal className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Carregando logs...</p>
+                      </div>
+                    ) : logs.length === 0 ? (
                       <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                         <Terminal className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p>Nenhum log disponível</p>
@@ -632,12 +650,12 @@ function App() {
                                 </span>
                                 {log.botId && (
                                   <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
-                                    Bot: {bots.find(b => b.id === log.botId)?.name || log.botId}
+                                    Bot: {bots.find(b => b.id === log.bot_id)?.name || log.bot_id}
                                   </span>
                                 )}
                               </div>
                               <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {log.timestamp.toLocaleString()}
+                                {new Date(log.timestamp).toLocaleString()}
                               </span>
                             </div>
                             <p className="text-sm mt-2 font-mono">{log.message}</p>
@@ -894,6 +912,14 @@ if __name__ == '__main__':
         </div>
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <NotificationProvider>
+      <AppContent />
+    </NotificationProvider>
   );
 }
 
