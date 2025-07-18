@@ -40,7 +40,7 @@ export interface StatsData {
 }
 
 class ApiService {
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private baseURL = '/api';
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: {
