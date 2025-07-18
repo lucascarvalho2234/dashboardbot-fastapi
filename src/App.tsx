@@ -778,7 +778,7 @@ function AppContent() {
                       value={botCode}
                       onChange={(e) => setBotCode(e.target.value)}
                       className="w-full bg-gray-900 text-white font-mono text-sm p-4 rounded-lg h-96 focus:ring-teal-500 focus:border-teal-500 resize-none"
-                      placeholder="# Cole seu código Python aqui ou carregue um arquivo...
+                      placeholder={`# Cole seu código Python aqui ou carregue um arquivo...
 import telebot
 from telebot import types
 import time
@@ -846,7 +846,7 @@ def main():
         main()
 
 if __name__ == '__main__':
-    main()"
+    main()
 
 # Exemplo de bot básico
 bot = telebot.TeleBot('SEU_TOKEN_AQUI')
@@ -860,7 +860,7 @@ def echo_all(message):
     bot.reply_to(message, message.text)
 
 if __name__ == '__main__':
-    bot.polling()"
+    bot.polling()`}
                     />
                   </div>
                 </div>
