@@ -23,11 +23,17 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Configuração do banco de dados
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/farmmoneyrich")
-if DATABASE_URL.startswith("postgres://"):
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///./sql_app.db"
+    logger.info("No DATABASE_URL found in environment, defaulting to SQLite for local development.")
+elif DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite://") else {}
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
