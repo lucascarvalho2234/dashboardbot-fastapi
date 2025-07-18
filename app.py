@@ -17,6 +17,8 @@ import signal
 import threading
 import time
 import requests
+import sys
+import os
 from pathlib import Path
 
 # Configuração de logging
@@ -195,12 +197,13 @@ def start_bot_process(bot_id: int, bot_code: str, bot_token: str, db: Session):
             # Substituir o token no código
             code_with_token = bot_code.replace('SEU_TOKEN_AQUI', bot_token)
             code_with_token = code_with_token.replace('YOUR_TOKEN_HERE', bot_token)
+            code_with_token = code_with_token.replace('BOT_TOKEN = "SEU_TOKEN_AQUI"', f'BOT_TOKEN = "{bot_token}"')
             f.write(code_with_token)
             temp_file = f.name
         
         # Iniciar processo do bot
         process = subprocess.Popen([
-            'python', temp_file
+            sys.executable, temp_file
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         bot_processes[bot_id] = process
